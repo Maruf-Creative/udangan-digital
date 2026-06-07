@@ -751,6 +751,7 @@ export default function WhatsAppGroupInvitation() {
               <div
                 key={msg.id || idx}
                 className={`flex items-start gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${shouldAnimate && !animationDone ? "animate-bubble-pop" : ""}`}
+                style={{ transformOrigin: isMe ? "top right" : "top left" }}
               >
                 {!isMe && (
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 border border-white/10 ${msg.color || "bg-yellow-600"} overflow-hidden`}>
