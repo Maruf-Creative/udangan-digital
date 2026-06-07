@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Video, Phone, MoreVertical, Send, Smile, MapPin, Calendar, Clock, X, ChevronLeft, Image as ImageIcon } from "lucide-react";
+import { Video, Phone, MoreVertical, Send, Smile, MapPin, Calendar, Clock, X, ChevronLeft, Image as ImageIcon, Paperclip, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getAllSettings } from "@/lib/settings";
+import { uploadFile } from "@/lib/storage";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 
 // Tipe Data Pesan
 type Message = {
@@ -14,6 +16,7 @@ type Message = {
   content: string;
   created_at?: string;
   isCurrentUser?: boolean;
+  image_url?: string;
 };
 
 type InitialChat = {
@@ -21,6 +24,7 @@ type InitialChat = {
   content: string;
   color: string;
   initial: string;
+  image_url?: string;
 };
 
 type MediaItem = {
@@ -38,6 +42,12 @@ export default function WhatsAppGroupInvitation() {
   const [showProfile, setShowProfile] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+
+  // New features state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Load settings & messages
   useEffect(() => {
@@ -95,6 +105,16 @@ export default function WhatsAppGroupInvitation() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Parsed settings helpers
   const groupName = settings.group_name || "Grup Hajatan 🕊️";
   const groupSubtitle = settings.group_subtitle || "Ketuk untuk info grup";
@@ -129,6 +149,52 @@ export default function WhatsAppGroupInvitation() {
     ...messages,
   ];
 
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setInputText((prev) => prev + emojiData.emoji);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Hanya file gambar yang diizinkan!");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran gambar maksimal 5MB!");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    const imageUrl = await uploadFile(file, "photos");
+    setIsUploadingPhoto(false);
+
+    if (!imageUrl) {
+      alert("Gagal mengupload foto. Pastikan pengaturan Supabase Storage sudah benar.");
+      return;
+    }
+
+    const newMsg = {
+      sender_name: currentUserName,
+      initial: currentUserName.charAt(0).toUpperCase(),
+      color: "bg-green-500",
+      content: "📸 Foto", 
+      image_url: imageUrl,
+    };
+
+    const tempId = Date.now().toString();
+    setMessages((prev) => [...prev, { ...newMsg, id: tempId, isCurrentUser: true }]);
+
+    const { error } = await supabase.from("messages").insert([newMsg]);
+    if (error) {
+      console.error("Gagal mengirim pesan foto:", error.message);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
@@ -143,6 +209,7 @@ export default function WhatsAppGroupInvitation() {
     const tempId = Date.now().toString();
     setMessages((prev) => [...prev, { ...newMsg, id: tempId, isCurrentUser: true }]);
     setInputText("");
+    setShowEmojiPicker(false);
 
     const { error } = await supabase.from("messages").insert([newMsg]);
     if (error) {
@@ -407,14 +474,20 @@ export default function WhatsAppGroupInvitation() {
   // ============================================================
   // MAIN RENDER
   // ============================================================
+  const gold = "#C9A96E";
+  const goldLight = "#E8D5A8";
+
   return (
-    <div className="flex justify-center h-screen bg-gray-900 overflow-hidden font-sans">
-      <div className="w-full max-w-[450px] h-full flex flex-col bg-chat-pattern relative shadow-2xl">
+    <div className="flex justify-center h-screen bg-black overflow-hidden font-sans">
+      <div className="w-full max-w-[450px] h-full flex flex-col relative shadow-2xl" style={{ background: "linear-gradient(180deg, #12121e 0%, #0a1128 100%)" }}>
 
         <style dangerouslySetInnerHTML={{__html: `
           .bg-chat-pattern {
-            background-color: #5bb3b1;
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.83-1.66 1.66-.83-.83.83-.83zM34.5 13.5L36 12l1.5 1.5-1.5 1.5-1.5-1.5zm-24 0L12 12l1.5 1.5-1.5 1.5-1.5-1.5zm19.5-6L31.5 6l1.5 1.5-1.5 1.5-1.5-1.5z' fill='%23ffffff' fill-opacity='0.15' fill-rule='evenodd'/%3E%3C/svg%3E");
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.83-1.66 1.66-.83-.83.83-.83zM34.5 13.5L36 12l1.5 1.5-1.5 1.5-1.5-1.5zm-24 0L12 12l1.5 1.5-1.5 1.5-1.5-1.5zm19.5-6L31.5 6l1.5 1.5-1.5 1.5-1.5-1.5z' fill='%23c9a96e' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+            z-index: 0;
+            pointer-events: none;
           }
           .scrollbar-hide::-webkit-scrollbar { display: none; }
           .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -426,6 +499,7 @@ export default function WhatsAppGroupInvitation() {
             to { transform: translateX(0); }
           }
         `}} />
+        <div className="bg-chat-pattern"></div>
 
         {/* PROFILE SHEET */}
         {showProfile && renderProfile()}
@@ -434,42 +508,42 @@ export default function WhatsAppGroupInvitation() {
         {renderMediaViewer()}
 
         {/* HEADER */}
-        <header className="flex items-center justify-between px-4 py-3 z-10" style={{ backgroundColor: "#F7E8B8" }}>
+        <header className="flex items-center justify-between px-4 py-3 z-10 backdrop-blur-md" style={{ background: "rgba(18, 18, 30, 0.8)", borderBottom: `1px solid ${gold}33` }}>
           <button onClick={() => setShowProfile(true)} className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition">
-            <div className="w-11 h-11 rounded-full bg-gray-300 overflow-hidden border border-gray-400">
-              <img src={groupPhoto} alt="Grup Profile" className="w-full h-full object-cover" />
+            <div className="w-11 h-11 rounded-full overflow-hidden border border-[#C9A96E]/50 p-[2px]" style={{ background: `linear-gradient(135deg, ${gold}, ${goldLight})` }}>
+              <img src={groupPhoto} alt="Grup Profile" className="w-full h-full object-cover rounded-full border-2 border-[#12121e]" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="font-bold text-gray-800 text-base leading-tight flex items-center gap-1">
+              <h1 className="font-bold text-base leading-tight flex items-center gap-1" style={{ color: goldLight, fontFamily: "'Georgia', 'Times New Roman', serif" }}>
                 {groupName}
               </h1>
-              <p className="text-xs text-gray-500 truncate w-32 md:w-40">
+              <p className="text-xs truncate w-32 md:w-40" style={{ color: `${gold}99` }}>
                 {groupSubtitle}
               </p>
             </div>
           </button>
 
-          <div className="flex items-center space-x-4 text-gray-700">
+          <div className="flex items-center space-x-4" style={{ color: gold }}>
             {videocallLink ? (
-              <a href={videocallLink} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-black/5 rounded-full transition-colors">
+              <a href={videocallLink} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-white/5 rounded-full transition-colors">
                 <Video className="w-5 h-5" />
               </a>
             ) : (
-              <button className="p-1 hover:bg-black/5 rounded-full transition-colors relative">
+              <button className="p-1 hover:bg-white/5 rounded-full transition-colors relative">
                 <Video className="w-5 h-5" />
               </button>
             )}
             {phoneNumber ? (
-              <a href={`tel:${phoneNumber}`} className="p-1 hover:bg-black/5 rounded-full transition-colors relative">
+              <a href={`tel:${phoneNumber}`} className="p-1 hover:bg-white/5 rounded-full transition-colors relative">
                 <Phone className="w-5 h-5" />
               </a>
             ) : (
-              <button className="p-1 hover:bg-black/5 rounded-full transition-colors relative">
+              <button className="p-1 hover:bg-white/5 rounded-full transition-colors relative">
                 <Phone className="w-5 h-5" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-[#F7E8B8]"></span>
+                <span className="absolute top-0 right-0 w-2 h-2 rounded-full border border-[#12121e]" style={{ background: gold }}></span>
               </button>
             )}
-            <button onClick={() => setShowProfile(true)} className="p-1 hover:bg-black/5 rounded-full transition-colors">
+            <button onClick={() => setShowProfile(true)} className="p-1 hover:bg-white/5 rounded-full transition-colors">
               <MoreVertical className="w-5 h-5" />
             </button>
           </div>
@@ -479,17 +553,18 @@ export default function WhatsAppGroupInvitation() {
         {getMediaItems().length > 0 && (
           <button
             onClick={() => setShowProfile(true)}
-            className="mx-auto mt-2 flex items-center gap-1.5 px-3 py-1 bg-white/80 backdrop-blur rounded-full text-xs font-medium text-[#5bb3b1] shadow-sm hover:bg-white transition"
+            className="mx-auto mt-3 flex items-center gap-1.5 px-4 py-1.5 backdrop-blur-md rounded-full text-xs font-semibold shadow-sm transition-all hover:scale-105 z-10"
+            style={{ background: `rgba(201,169,110,0.15)`, color: goldLight, border: `1px solid ${gold}44` }}
           >
-            <ImageIcon className="w-3 h-3" />
+            <ImageIcon className="w-3.5 h-3.5" />
             Lihat {getMediaItems().length} media & info undangan
           </button>
         )}
 
         {/* MESSAGE AREA */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 scrollbar-hide z-10">
           {allMessages.length === 0 && (
-            <div className="text-center text-white/70 text-sm bg-black/20 p-2 rounded-xl mx-auto w-fit">
+            <div className="text-center text-sm p-2 rounded-xl mx-auto w-fit" style={{ color: `${gold}aa`, background: `rgba(201,169,110,0.1)` }}>
               Mulai percakapan...
             </div>
           )}
@@ -502,27 +577,46 @@ export default function WhatsAppGroupInvitation() {
                 className={`flex items-start gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
               >
                 {!isMe && (
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 ${msg.color || "bg-yellow-500"}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 border border-white/10 ${msg.color || "bg-yellow-600"}`}>
                     {msg.initial}
                   </div>
                 )}
 
                 <div
-                  className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${
-                    isMe ? "bg-[#dcf8c6] rounded-tr-sm" : "bg-white rounded-tl-sm"
+                  className={`max-w-[80%] rounded-2xl p-3 shadow-sm backdrop-blur-sm ${
+                    isMe 
+                      ? "rounded-tr-sm" 
+                      : "rounded-tl-sm"
                   }`}
+                  style={isMe 
+                    ? { background: `linear-gradient(135deg, ${gold}22, ${gold}11)`, border: `1px solid ${gold}44` }
+                    : { background: `rgba(255,255,255,0.05)`, border: `1px solid rgba(255,255,255,0.1)` }
+                  }
                 >
                   {!isMe && (
-                    <p className="font-semibold text-sm text-gray-900 mb-1">
+                    <p className="font-semibold text-xs mb-1" style={{ color: goldLight }}>
                       {msg.sender_name}
                     </p>
                   )}
-                  <p className="text-gray-800 text-[15px] leading-relaxed break-words">
+                  
+                  {/* Render Image if exists */}
+                  {msg.image_url && (
+                    <div 
+                      className="mb-2 rounded-xl overflow-hidden cursor-pointer" 
+                      style={{ border: `1px solid ${gold}33` }}
+                      onClick={() => setSelectedMedia({ url: msg.image_url!, type: "photo", caption: msg.sender_name })}
+                    >
+                      <img src={msg.image_url} alt="Foto Chat" className="w-full max-h-60 object-cover hover:opacity-90 transition" />
+                    </div>
+                  )}
+
+                  <p className="text-[14px] leading-relaxed break-words" style={{ color: "#e2e8f0" }}>
                     {msg.content}
                   </p>
+                  
                   {msg.created_at && (
                     <div className="text-right mt-1">
-                      <span className="text-[10px] text-gray-400 font-medium">
+                      <span className="text-[10px] font-medium" style={{ color: isMe ? `${gold}aa` : "rgba(255,255,255,0.4)" }}>
                         {formatTime(msg.created_at)}
                       </span>
                     </div>
@@ -535,30 +629,67 @@ export default function WhatsAppGroupInvitation() {
         </div>
 
         {/* INPUT AREA */}
-        <div className="p-3 bg-[#F7E8B8] z-10 w-full pb-6">
+        <div className="p-3 z-20 w-full pb-6 backdrop-blur-md relative" style={{ background: "rgba(18, 18, 30, 0.85)", borderTop: `1px solid ${gold}33` }}>
+          
+          {/* Emoji Picker Popover */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-[80px] left-2 z-50 shadow-2xl" ref={emojiPickerRef}>
+              <EmojiPicker 
+                onEmojiClick={onEmojiClick} 
+                theme={"dark" as any}
+                searchDisabled
+                skinTonesDisabled
+                width={300}
+                height={400}
+              />
+            </div>
+          )}
+
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            <div className="flex-1 flex items-center bg-white rounded-full px-4 py-2 border border-gray-300">
+            <div className="flex-1 flex items-center rounded-full px-4 py-2" style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${gold}44` }}>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="mr-3 transition-colors hover:scale-110"
+                style={{ color: goldLight }}
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              
               <input
                 type="text"
-                placeholder="Message..."
-                className="flex-1 bg-transparent outline-none text-gray-800 text-sm"
+                placeholder="Ketik pesan..."
+                className="flex-1 bg-transparent outline-none text-sm placeholder-white/40"
+                style={{ color: "#e2e8f0" }}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
               />
+
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handlePhotoUpload} 
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                className="ml-3 transition-colors hover:scale-110 disabled:opacity-50"
+                style={{ color: goldLight }}
+              >
+                {isUploadingPhoto ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+              </button>
             </div>
 
             <button
-              type="button"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#e8d695] text-gray-700 hover:bg-[#d8c584] transition"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
-
-            <button
               type="submit"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#e8d695] text-gray-700 hover:bg-[#d8c584] transition"
+              disabled={!inputText.trim()}
+              className="w-11 h-11 flex items-center justify-center rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:scale-100"
+              style={{ background: `linear-gradient(135deg, ${gold}, #B8955A)`, color: "#12121e", boxShadow: `0 4px 10px ${gold}44` }}
             >
-              <Send className="w-5 h-5 ml-1" />
+              <Send className="w-5 h-5 ml-0.5" />
             </button>
           </form>
         </div>
