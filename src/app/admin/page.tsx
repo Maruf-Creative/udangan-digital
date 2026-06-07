@@ -22,6 +22,22 @@ export default function AdminWhatsAppGroupInvitation() {
   
   // Ambil nama pengguna admin
   const [currentUserName, setCurrentUserName] = useState("Admin");
+
+  // State Login
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (username === "admin" && password === "admin123") {
+      setIsAuthenticated(true);
+      setLoginError("");
+    } else {
+      setLoginError("Username atau password salah!");
+    }
+  };
   
   useEffect(() => {
     // 1. Ambil data pesan awal dari Supabase
@@ -118,6 +134,58 @@ export default function AdminWhatsAppGroupInvitation() {
     const date = new Date(isoString);
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-900 font-sans">
+        <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-2xl">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center shadow-lg">
+              <ShieldAlert className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Admin Login</h2>
+          
+          {loginError && (
+            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center font-medium">
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+              <input 
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                placeholder="Masukkan username"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+              <input 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                placeholder="Masukkan password"
+                required
+              />
+            </div>
+            <button 
+              type="submit"
+              className="w-full py-2.5 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition duration-200"
+            >
+              Masuk ke Admin Panel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center h-screen bg-gray-900 overflow-hidden font-sans">
