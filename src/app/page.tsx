@@ -116,7 +116,7 @@ export default function WhatsAppGroupInvitation() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, visibleCount]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
