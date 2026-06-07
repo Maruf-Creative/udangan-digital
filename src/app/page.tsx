@@ -42,6 +42,7 @@ export default function WhatsAppGroupInvitation() {
   const [showProfile, setShowProfile] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [isJoined, setIsJoined] = useState(false);
 
   // New features state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -51,11 +52,14 @@ export default function WhatsAppGroupInvitation() {
 
   // Load settings & messages
   useEffect(() => {
-    let name = localStorage.getItem("whatsapp_guest_name");
+    const searchParams = new URLSearchParams(window.location.search);
+    const toParam = searchParams.get("to");
+    let name = toParam ? toParam : localStorage.getItem("whatsapp_guest_name");
+    
     if (!name) {
       name = "Tamu " + Math.floor(Math.random() * 1000);
-      localStorage.setItem("whatsapp_guest_name", name);
     }
+    localStorage.setItem("whatsapp_guest_name", name);
     setCurrentUserName(name);
 
     const loadData = async () => {
@@ -472,10 +476,82 @@ export default function WhatsAppGroupInvitation() {
   };
 
   // ============================================================
+  // RENDER COVER SCREEN
+  // ============================================================
+  const renderCoverScreen = () => {
+    const coverCreator = settings.cover_creator || "Created by Admin";
+    const coverWelcome = settings.cover_welcome_message || "Kamu telah diundang untuk menghadiri pernikahan kami.";
+    const coverMemberCount = settings.cover_member_count || "+100";
+    
+    const gold = "#C9A96E";
+    const goldLight = "#E8D5A8";
+
+    return (
+      <div className="flex justify-center h-screen bg-black overflow-hidden font-sans absolute inset-0 z-[100]">
+        <div className="w-full max-w-[450px] h-full flex flex-col items-center justify-center relative shadow-2xl px-6 text-center" style={{ background: "linear-gradient(180deg, #12121e 0%, #0a1128 100%)" }}>
+          
+          {/* Pattern Background */}
+          <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-1.66 1.66-.83-.83.83-.83zM34.5 13.5L36 12l1.5 1.5-1.5 1.5-1.5-1.5zm-24 0L12 12l1.5 1.5-1.5 1.5-1.5-1.5zm19.5-6L31.5 6l1.5 1.5-1.5 1.5-1.5-1.5z\' fill=\'%23c9a96e\' fill-opacity=\'0.2\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")' }}></div>
+
+          <div className="z-10 flex flex-col items-center animate-slide-in">
+            {/* Group Photo */}
+            <div className="w-32 h-32 rounded-full overflow-hidden border-2 p-1 mb-4 shadow-[0_0_20px_rgba(201,169,110,0.3)]" style={{ borderColor: gold, background: `linear-gradient(135deg, ${gold}, ${goldLight})` }}>
+              <img src={groupPhoto} alt="Group Cover" className="w-full h-full object-cover rounded-full border-4 border-[#12121e]" />
+            </div>
+
+            {/* Group Name & Creator */}
+            <h1 className="text-3xl font-bold mb-2 flex items-center justify-center gap-2" style={{ color: goldLight, fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+              {groupName}
+            </h1>
+            <p className="text-sm mb-6 font-medium" style={{ color: `${gold}99` }}>
+              {coverCreator}
+            </p>
+
+            {/* Stacked Avatars */}
+            <div className="flex items-center justify-center mb-8">
+              <div className="flex -space-x-3">
+                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Reza" alt="avatar 1" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-800" />
+                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Jasmine" alt="avatar 2" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-700" />
+                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Cinta" alt="avatar 3" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-600" />
+                <div className="w-12 h-12 rounded-full border-2 border-[#12121e] flex items-center justify-center text-xs font-bold" style={{ background: `linear-gradient(135deg, ${gold}, #B8955A)`, color: "#12121e" }}>
+                  {coverMemberCount}
+                </div>
+              </div>
+            </div>
+
+            {/* Welcome Message */}
+            <div className="mb-10 text-center">
+              <h2 className="text-lg font-semibold mb-2" style={{ color: "#e2e8f0" }}>
+                Halo, {currentUserName} 👋
+              </h2>
+              <p className="text-sm px-4 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+                {coverWelcome}
+              </p>
+            </div>
+
+            {/* Join Button */}
+            <button 
+              onClick={() => setIsJoined(true)}
+              className="w-full px-12 py-3.5 rounded-full font-bold text-[15px] shadow-[0_4px_15px_rgba(201,169,110,0.3)] transition-all hover:scale-105"
+              style={{ background: `linear-gradient(135deg, ${gold}, #B8955A)`, color: "#12121e" }}
+            >
+              Join Grup
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
   // MAIN RENDER
   // ============================================================
   const gold = "#C9A96E";
   const goldLight = "#E8D5A8";
+
+  if (!isJoined) {
+    return renderCoverScreen();
+  }
 
   return (
     <div className="flex justify-center h-screen bg-black overflow-hidden font-sans">

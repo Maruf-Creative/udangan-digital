@@ -37,10 +37,11 @@ type InitialChat = {
   initial: string;
 };
 
-type TabId = "general" | "couple" | "media" | "chats" | "contact" | "messages";
+type TabId = "general" | "cover" | "couple" | "media" | "chats" | "contact" | "messages";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "general", label: "Pengaturan Umum", icon: <Settings className="w-5 h-5" /> },
+  { id: "cover", label: "Layar Cover", icon: <Image className="w-5 h-5" /> },
   { id: "couple", label: "Info Pasangan & Acara", icon: <Heart className="w-5 h-5" /> },
   { id: "media", label: "Media", icon: <Image className="w-5 h-5" /> },
   { id: "chats", label: "Chat Awal", icon: <MessageSquare className="w-5 h-5" /> },
@@ -522,6 +523,7 @@ export default function AdminDashboard() {
             </h2>
             <p className="text-slate-500 text-sm mt-1">
               {activeTab === "general" && "Atur nama grup, foto profil, dan subtitle undangan."}
+              {activeTab === "cover" && "Atur tampilan layar pertama sebelum tamu masuk ke grup."}
               {activeTab === "couple" && "Atur informasi mempelai dan detail acara."}
               {activeTab === "media" && "Upload foto & video untuk galeri undangan."}
               {activeTab === "chats" && "Tambah pesan awal yang muncul otomatis di chat."}
@@ -583,6 +585,40 @@ export default function AdminDashboard() {
                 )}
               </FormField>
               <SaveButton saving={saving} onClick={() => saveSettings(["group_name", "group_subtitle", "group_photo"])} />
+            </div>
+          )}
+
+          {/* ===================== TAB: LAYAR COVER ===================== */}
+          {activeTab === "cover" && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+              <FormField label="Teks Pembuat (Creator)" icon={<MessageSquare className="w-4 h-4" />}>
+                <input
+                  type="text"
+                  value={settings.cover_creator || ""}
+                  onChange={(e) => updateSetting("cover_creator", e.target.value)}
+                  className="form-input"
+                  placeholder="Contoh: Created by Reza dan Jasmine"
+                />
+              </FormField>
+              <FormField label="Pesan Sambutan" icon={<Settings className="w-4 h-4" />}>
+                <textarea
+                  value={settings.cover_welcome_message || ""}
+                  onChange={(e) => updateSetting("cover_welcome_message", e.target.value)}
+                  className="form-input"
+                  rows={2}
+                  placeholder="Contoh: Kamu telah diundang untuk menghadiri pernikahan kami."
+                />
+              </FormField>
+              <FormField label="Teks Jumlah Anggota" icon={<Heart className="w-4 h-4" />}>
+                <input
+                  type="text"
+                  value={settings.cover_member_count || ""}
+                  onChange={(e) => updateSetting("cover_member_count", e.target.value)}
+                  className="form-input"
+                  placeholder="Contoh: +100"
+                />
+              </FormField>
+              <SaveButton saving={saving} onClick={() => saveSettings(["cover_creator", "cover_welcome_message", "cover_member_count"])} />
             </div>
           )}
 
