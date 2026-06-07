@@ -17,6 +17,7 @@ type Message = {
   created_at?: string;
   isCurrentUser?: boolean;
   image_url?: string;
+  sender_avatar?: string;
 };
 
 type InitialChat = {
@@ -43,12 +44,15 @@ export default function WhatsAppGroupInvitation() {
   const [showGallery, setShowGallery] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isJoined, setIsJoined] = useState(false);
+  const [guestAvatar, setGuestAvatar] = useState("");
 
   // New features state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingGuestAvatar, setIsUploadingGuestAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const coverAvatarRef = useRef<HTMLInputElement>(null);
 
   // Load settings & messages
   useEffect(() => {
@@ -61,6 +65,9 @@ export default function WhatsAppGroupInvitation() {
     }
     localStorage.setItem("whatsapp_guest_name", name);
     setCurrentUserName(name);
+
+    const savedAvatar = localStorage.getItem("whatsapp_guest_avatar");
+    if (savedAvatar) setGuestAvatar(savedAvatar);
 
     const loadData = async () => {
       // Load settings
@@ -157,6 +164,31 @@ export default function WhatsAppGroupInvitation() {
     setInputText((prev) => prev + emojiData.emoji);
   };
 
+  const handleGuestAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Hanya file gambar yang diizinkan!");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran gambar maksimal 5MB!");
+      return;
+    }
+
+    setIsUploadingGuestAvatar(true);
+    const imageUrl = await uploadFile(file, "photos");
+    setIsUploadingGuestAvatar(false);
+
+    if (imageUrl) {
+      setGuestAvatar(imageUrl);
+      localStorage.setItem("whatsapp_guest_avatar", imageUrl);
+    } else {
+      alert("Gagal mengupload foto profil.");
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -185,6 +217,7 @@ export default function WhatsAppGroupInvitation() {
       color: "bg-green-500",
       content: "📸 Foto", 
       image_url: imageUrl,
+      sender_avatar: guestAvatar || undefined,
     };
 
     const tempId = Date.now().toString();
@@ -208,6 +241,7 @@ export default function WhatsAppGroupInvitation() {
       initial: currentUserName.charAt(0).toUpperCase(),
       color: "bg-green-500",
       content: inputText,
+      sender_avatar: guestAvatar || undefined,
     };
 
     const tempId = Date.now().toString();
@@ -483,6 +517,10 @@ export default function WhatsAppGroupInvitation() {
     const coverWelcome = settings.cover_welcome_message || "Kamu telah diundang untuk menghadiri pernikahan kami.";
     const coverMemberCount = settings.cover_member_count || "+100";
     
+    const avatar1 = settings.cover_avatar_1 || "https://api.dicebear.com/7.x/notionists/svg?seed=Reza";
+    const avatar2 = settings.cover_avatar_2 || "https://api.dicebear.com/7.x/notionists/svg?seed=Jasmine";
+    const avatar3 = settings.cover_avatar_3 || "https://api.dicebear.com/7.x/notionists/svg?seed=Cinta";
+
     const gold = "#C9A96E";
     const goldLight = "#E8D5A8";
 
@@ -510,20 +548,46 @@ export default function WhatsAppGroupInvitation() {
             {/* Stacked Avatars */}
             <div className="flex items-center justify-center mb-8">
               <div className="flex -space-x-3">
-                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Reza" alt="avatar 1" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-800" />
-                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Jasmine" alt="avatar 2" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-700" />
-                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Cinta" alt="avatar 3" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-600" />
+                <img src={avatar1} alt="avatar 1" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-800 object-cover" />
+                <img src={avatar2} alt="avatar 2" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-700 object-cover" />
+                <img src={avatar3} alt="avatar 3" className="w-12 h-12 rounded-full border-2 border-[#12121e] bg-slate-600 object-cover" />
                 <div className="w-12 h-12 rounded-full border-2 border-[#12121e] flex items-center justify-center text-xs font-bold" style={{ background: `linear-gradient(135deg, ${gold}, #B8955A)`, color: "#12121e" }}>
                   {coverMemberCount}
                 </div>
               </div>
             </div>
 
-            {/* Welcome Message */}
-            <div className="mb-10 text-center">
-              <h2 className="text-lg font-semibold mb-2" style={{ color: "#e2e8f0" }}>
-                Halo, {currentUserName} 👋
-              </h2>
+            {/* Welcome Message & Guest Profile */}
+            <div className="mb-10 w-full flex flex-col items-center">
+              <div className="relative mb-4 group cursor-pointer" onClick={() => coverAvatarRef.current?.click()}>
+                <div className="w-20 h-20 rounded-full border-2 border-[#12121e] bg-slate-800 overflow-hidden flex items-center justify-center shadow-[0_0_15px_rgba(201,169,110,0.2)]" style={{ borderColor: gold }}>
+                  {guestAvatar ? (
+                    <img src={guestAvatar} alt="Guest" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-slate-500" />
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isUploadingGuestAvatar ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <ImageIcon className="w-5 h-5 text-white" />}
+                </div>
+                <input type="file" accept="image/*" className="hidden" ref={coverAvatarRef} onChange={handleGuestAvatarUpload} disabled={isUploadingGuestAvatar} />
+              </div>
+
+              <div className="w-full px-8 mb-3">
+                <p className="text-xs font-semibold mb-1 text-center" style={{ color: goldLight }}>NAMA TAMU</p>
+                <input 
+                  type="text"
+                  value={currentUserName}
+                  onChange={(e) => {
+                    setCurrentUserName(e.target.value);
+                    localStorage.setItem("whatsapp_guest_name", e.target.value);
+                  }}
+                  className="w-full bg-slate-900/50 border rounded-lg px-4 py-2.5 text-center text-white font-semibold focus:outline-none focus:border-[#C9A96E] transition-colors"
+                  style={{ borderColor: "rgba(201,169,110,0.3)" }}
+                  placeholder="Masukkan nama Anda..."
+                />
+              </div>
+
               <p className="text-sm px-4 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
                 {coverWelcome}
               </p>
@@ -653,8 +717,12 @@ export default function WhatsAppGroupInvitation() {
                 className={`flex items-start gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
               >
                 {!isMe && (
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 border border-white/10 ${msg.color || "bg-yellow-600"}`}>
-                    {msg.initial}
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 border border-white/10 ${msg.color || "bg-yellow-600"} overflow-hidden`}>
+                    {msg.sender_avatar ? (
+                      <img src={msg.sender_avatar} alt={msg.sender_name} className="w-full h-full object-cover" />
+                    ) : (
+                      msg.initial
+                    )}
                   </div>
                 )}
 

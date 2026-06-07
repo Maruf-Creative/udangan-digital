@@ -150,6 +150,21 @@ export default function AdminDashboard() {
     setPhotoToCrop(null);
   };
 
+  const handleCoverAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "cover_avatar_1" | "cover_avatar_2" | "cover_avatar_3") => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setUploading(true);
+      const uploadedUrl = await uploadFile(file, "photos");
+      setUploading(false);
+      if (uploadedUrl) {
+        updateSetting(field, uploadedUrl);
+        showToast(`Avatar berhasil diupload!`, "success");
+      } else {
+        showToast("Gagal mengupload avatar.", "error");
+      }
+    }
+  };
+
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -618,7 +633,33 @@ export default function AdminDashboard() {
                   placeholder="Contoh: +100"
                 />
               </FormField>
-              <SaveButton saving={saving} onClick={() => saveSettings(["cover_creator", "cover_welcome_message", "cover_member_count"])} />
+              
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-slate-700">Custom Stacked Avatars</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2, 3].map((num) => {
+                    const field = `cover_avatar_${num}` as "cover_avatar_1" | "cover_avatar_2" | "cover_avatar_3";
+                    const val = settings[field];
+                    return (
+                      <div key={num} className="flex flex-col items-center gap-2">
+                        <div className="w-16 h-16 rounded-full border-2 border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden">
+                          {val ? (
+                            <img src={val} alt={`Avatar ${num}`} className="w-full h-full object-cover" />
+                          ) : (
+                            <Image className="w-6 h-6 text-slate-400" />
+                          )}
+                        </div>
+                        <label className="text-xs font-medium text-blue-600 cursor-pointer hover:underline">
+                          Upload
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverAvatarUpload(e, field)} disabled={uploading} />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <SaveButton saving={saving} onClick={() => saveSettings(["cover_creator", "cover_welcome_message", "cover_member_count", "cover_avatar_1", "cover_avatar_2", "cover_avatar_3"])} />
             </div>
           )}
 
