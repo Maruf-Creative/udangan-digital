@@ -9,6 +9,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { getAllSettings, upsertMultipleSettings } from "@/lib/settings";
 import { uploadFile, deleteFile } from "@/lib/storage";
+import Cropper from "react-easy-crop";
+import getCroppedImg from "@/lib/cropImage";
 
 // ============================================================
 // TYPES
@@ -91,6 +93,13 @@ export default function AdminDashboard() {
     initial: "",
   });
 
+  // ---- Cropper State ----
+  const [photoToCrop, setPhotoToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isCropping, setIsCropping] = useState(false);
+
   // ============================================================
   // HANDLERS
   // ============================================================
@@ -103,6 +112,41 @@ export default function AdminDashboard() {
     } else {
       setLoginError("Username atau password salah!");
     }
+  };
+
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleProfilePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const imageUrl = URL.createObjectURL(file);
+      setPhotoToCrop(imageUrl);
+    }
+  };
+
+  const handleCropSave = async () => {
+    if (!photoToCrop || !croppedAreaPixels) return;
+    
+    setIsCropping(true);
+    try {
+      const croppedImageFile = await getCroppedImg(photoToCrop, croppedAreaPixels);
+      if (!croppedImageFile) throw new Error("Gagal memotong gambar");
+
+      const uploadedUrl = await uploadFile(croppedImageFile, "photos");
+      if (uploadedUrl) {
+        updateSetting("group_photo", uploadedUrl);
+        showToast("Foto profil berhasil di-crop dan disiapkan!", "success");
+      } else {
+        showToast("Gagal mengupload foto hasil crop.", "error");
+      }
+    } catch (e) {
+      console.error(e);
+      showToast("Terjadi kesalahan saat memotong foto.", "error");
+    }
+    setIsCropping(false);
+    setPhotoToCrop(null);
   };
 
   const showToast = (message: string, type: "success" | "error") => {
@@ -344,6 +388,53 @@ export default function AdminDashboard() {
   // ============================================================
   return (
     <div className="flex h-screen bg-slate-100 font-sans">
+      {/* CROPPER MODAL */}
+      {photoToCrop && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col h-[500px]">
+            <div className="px-4 py-3 border-b flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">Crop Foto Profil (1:1)</h3>
+              <button onClick={() => setPhotoToCrop(null)} className="p-1 hover:bg-slate-200 rounded-full transition">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="flex-1 relative bg-slate-900">
+              <Cropper
+                image={photoToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            
+            <div className="p-4 border-t bg-slate-50">
+              <label className="text-xs font-semibold text-slate-500 mb-2 block">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full mb-4 accent-blue-600"
+              />
+              <button
+                onClick={handleCropSave}
+                disabled={isCropping}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50 flex justify-center items-center gap-2"
+              >
+                {isCropping ? "Memproses..." : <><Save className="w-4 h-4"/> Simpan Foto</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TOAST NOTIFICATION */}
       {toast && (
         <div
@@ -461,15 +552,32 @@ export default function AdminDashboard() {
                 />
               </FormField>
               <FormField label="URL Foto Profil Grup" icon={<Image className="w-4 h-4" />}>
-                <input
-                  type="text"
-                  value={settings.group_photo || ""}
-                  onChange={(e) => updateSetting("group_photo", e.target.value)}
-                  className="form-input"
-                  placeholder="https://contoh.com/foto.jpg"
-                />
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    value={settings.group_photo || ""}
+                    onChange={(e) => updateSetting("group_photo", e.target.value)}
+                    className="form-input"
+                    placeholder="https://contoh.com/foto.jpg"
+                  />
+                  
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-slate-500 font-medium">ATAU</span>
+                    <label className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-sm transition cursor-pointer border border-slate-300">
+                      <Upload className="w-4 h-4" />
+                      Upload & Crop Foto (1:1)
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleProfilePhotoSelect}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 {settings.group_photo && (
-                  <div className="mt-3">
+                  <div className="mt-4">
                     <img src={settings.group_photo} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-slate-200" />
                   </div>
                 )}
