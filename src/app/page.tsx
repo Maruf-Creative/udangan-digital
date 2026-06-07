@@ -45,6 +45,8 @@ export default function WhatsAppGroupInvitation() {
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [isJoined, setIsJoined] = useState(false);
   const [guestAvatar, setGuestAvatar] = useState("");
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [animationDone, setAnimationDone] = useState(false);
 
   // New features state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -125,6 +127,28 @@ export default function WhatsAppGroupInvitation() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Staggered bubble animation on join
+  useEffect(() => {
+    if (!isJoined || animationDone) return;
+    const initialChatsCount = getInitialChats().length + messages.length;
+    if (initialChatsCount === 0) {
+      setAnimationDone(true);
+      return;
+    }
+    setVisibleCount(0);
+    let count = 0;
+    const interval = setInterval(() => {
+      count++;
+      setVisibleCount(count);
+      if (count >= initialChatsCount) {
+        clearInterval(interval);
+        setAnimationDone(true);
+      }
+    }, 400);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoined, settings]);
 
   // Parsed settings helpers
   const groupName = settings.group_name || "Grup Hajatan 🕊️";
@@ -638,6 +662,13 @@ export default function WhatsAppGroupInvitation() {
             from { transform: translateX(100%); }
             to { transform: translateX(0); }
           }
+          .animate-bubble-pop {
+            animation: bubblePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          }
+          @keyframes bubblePop {
+            from { opacity: 0; transform: scale(0.3) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+          }
         `}} />
         <div className="bg-chat-pattern"></div>
 
@@ -711,10 +742,15 @@ export default function WhatsAppGroupInvitation() {
           {allMessages.map((msg, idx) => {
             const isMe = msg.isCurrentUser || msg.sender_name === currentUserName;
 
+            // During animation, hide messages not yet revealed
+            if (!animationDone && idx >= visibleCount) return null;
+
+            const shouldAnimate = !animationDone || idx >= visibleCount - 1;
+
             return (
               <div
                 key={msg.id || idx}
-                className={`flex items-start gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
+                className={`flex items-start gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${shouldAnimate && !animationDone ? "animate-bubble-pop" : ""}`}
               >
                 {!isMe && (
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 border border-white/10 ${msg.color || "bg-yellow-600"} overflow-hidden`}>
